@@ -15,6 +15,7 @@ let drawInterval;
 let timeLeft = 60000;
 let then;
 let playing = false;
+let controller;
 function drawOne() {
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -175,6 +176,12 @@ canvas.width = window.screen.width;
 canvas.height = window.screen.availHeight;
 document.addEventListener("keyup", handleKeyUp);
 document.addEventListener("keydown", handleKeyDownEvent);
+window.addEventListener("gamepadconnected", (event) => {
+    controller = event.gamepad;
+});
+window.addEventListener("gamepaddisconnected", (event) => {
+    controller = null;
+});
 generateEnemies();
 ctx.fillStyle = "#000";
 ctx.fillRect(0, 0, canvas.width, canvas.height);
