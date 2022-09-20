@@ -147,9 +147,7 @@ function resetEnemy(enemy) {
 function handleKeyDownEvent(event) {
     canvas.requestFullscreen().catch((error) => { if (playing)
         return; alert("For the best experience, please go into fullscreen mode"); });
-    if (event.code == "Enter") {
-        if (playing)
-            return;
+    if (!playing) {
         playing = true;
         then = performance.now();
         drawInterval = setInterval(() => {
