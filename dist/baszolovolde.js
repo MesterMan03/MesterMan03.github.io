@@ -111,6 +111,7 @@ function drawOne() {
 }
 function end(timeOut = false) {
     clearInterval(drawInterval);
+    playing = false;
     let highscore = Number.parseInt(localStorage.getItem("asteroidHighScore"));
     if (isNaN(highscore))
         highscore = 0;
@@ -144,7 +145,8 @@ function resetEnemy(enemy) {
     enemy.speed = Math.random() * 3 + 3;
 }
 function handleKeyDownEvent(event) {
-    canvas.requestFullscreen().catch((error) => { console.log(error); alert("For the best experience, please go into fullscreen mode"); });
+    canvas.requestFullscreen().catch((error) => { if (playing)
+        return; alert("For the best experience, please go into fullscreen mode"); });
     if (event.code == "Enter") {
         if (playing)
             return;
