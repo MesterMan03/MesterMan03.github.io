@@ -1,7 +1,9 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+let screenRatio = 0;
+let sizeRatio = screenRatio / 1;
 const playerX = 50;
-const playerSpeed = 10;
+let playerSpeed = 10;
 const bulletSize = 10;
 let playerY = canvas.height / 2;
 let moving = 0;
@@ -14,9 +16,17 @@ const enemies = [];
 let drawInterval;
 let timeLeft = 60000;
 let then;
-let playing = false;
-let controller;
+var GameState;
+(function (GameState) {
+    GameState[GameState["MainMenu"] = 0] = "MainMenu";
+    GameState[GameState["Playing"] = 1] = "Playing";
+    GameState[GameState["Died"] = 2] = "Died";
+    GameState[GameState["Paused"] = 3] = "Paused";
+})(GameState || (GameState = {}));
+let playing = GameState.MainMenu;
+let mobile = false;
 function drawOne() {
+    handleGamepad();
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     if (moving !== 0) {
@@ -63,8 +73,8 @@ function drawOne() {
         ctx.fill();
     }
     ctx.fillStyle = "#00ff00";
-    ctx.fillRect(0, canvas.height, 20, -(canvas.height * (hp / 100)));
-    ctx.font = "20px bold Consolas";
+    ctx.fillRect(20, 20, (100 * (hp / 100)), 10);
+    ctx.font = `${20 * screenRatio}px bold Consolas`;
     ctx.textAlign = "right";
     ctx.fillStyle = "#fff";
     ctx.fillText(`Pontocskáid: ${score}`, canvas.width - 20, canvas.height - 20);
@@ -102,8 +112,6 @@ function drawOne() {
     if (timeLeft <= 0) {
         end(true);
     }
-    if (shootCooldown > 0)
-        shootCooldown--;
     if (blinkCooldown > 0)
         blinkCooldown--;
     timeLeft -= performance.now() - then;
@@ -111,7 +119,7 @@ function drawOne() {
 }
 function end(timeOut = false) {
     clearInterval(drawInterval);
-    playing = false;
+    playing = GameState.Died;
     let highscore = Number.parseInt(localStorage.getItem("asteroidHighScore"));
     if (isNaN(highscore))
         highscore = 0;
@@ -119,45 +127,52 @@ function end(timeOut = false) {
         highscore = score;
         localStorage.setItem("asteroidHighScore", highscore.toString());
     }
-    ctx.font = "30px Consolas";
+    ctx.font = `${30 * screenRatio}px Consolas`;
     ctx.textAlign = "center";
     ctx.fillStyle = "#fff";
     ctx.fillText(`Na bazdmeg (${timeOut ? "lejárt az időcskéd" : "szar játékos vagy, belementél mindenbe"}). Pontocskáid: ${score}`, canvas.width / 2, canvas.height / 2 - 100);
     ctx.fillText(`Magas pontocskáid (ha nem írtad át, kis csaló): ${highscore}`, canvas.width / 2, canvas.height / 2 - 70);
 }
 function shoot() {
-    if (shootCooldown > 0)
+    if (performance.now() < shootCooldown)
         return;
     bullets.push({ x: playerX + 30, y: playerY, hitsleft: 3 });
-    shootCooldown = 15;
+    shootCooldown = performance.now() + 500;
+}
+function getEnemyData() {
+    return {
+        size: Math.floor(Math.random() * 20) + 30,
+        speed: Math.floor(Math.random() * 2 + 2),
+    };
 }
 function generateEnemies() {
-    for (let i = 0; i < 200; i++) {
-        const size = Math.floor(Math.random() * 20) + 30;
-        const speed = Math.random() * 3 + 3;
+    for (let i = 0; i < 100 * (mobile ? 0.3 : 1); i++) {
+        const { size, speed } = getEnemyData();
         enemies.push({ x: canvas.width + 50 + Math.floor(Math.random() * 99) + 1, y: Math.floor(Math.random() * canvas.height - size) + size / 2, size, speed });
     }
 }
 function resetEnemy(enemy) {
+    const { size, speed } = getEnemyData();
     enemy.x = canvas.width + enemy.size / 2;
     enemy.y = Math.floor(Math.random() * canvas.height - enemy.size) + enemy.size / 2;
-    enemy.size = Math.floor(Math.random() * 20) + 30;
-    enemy.speed = Math.random() * 3 + 3;
+    enemy.speed = speed;
+    enemy.size = size;
 }
 function handleKeyDownEvent(event) {
-    canvas.requestFullscreen().catch((error) => { if (playing)
+    canvas.requestFullscreen()
+        .then(() => {
+        if (canvas.height !== screen.height)
+            reScale();
+    })
+        .catch((error) => { if (playing)
         return; alert("For the best experience, please go into fullscreen mode"); });
     if (!playing) {
-        playing = true;
-        then = performance.now();
-        drawInterval = setInterval(() => {
-            drawOne();
-        }, 16);
+        start();
     }
-    if (event.key == "ArrowDown") {
+    if (event.code == "ArrowDown") {
         moving = -1;
     }
-    if (event.key == "ArrowUp") {
+    if (event.code == "ArrowUp") {
         moving = 1;
     }
     if (event.code == "Space") {
@@ -172,21 +187,54 @@ function handleKeyUp(event) {
         moving = 0;
     }
 }
-canvas.width = window.screen.width;
-canvas.height = window.screen.availHeight;
+function handleGamepad() {
+    var _a;
+    const gp = navigator.getGamepads()[0];
+    if (!gp)
+        return;
+    if ((_a = gp.buttons[2]) === null || _a === void 0 ? void 0 : _a.pressed) {
+        const e = new KeyboardEvent("keydown", {
+            code: "Space"
+        });
+        document.dispatchEvent(e);
+    }
+    if (gp.axes[1] > 0.2) {
+        moving = -1;
+    }
+    else if (gp.axes[1] < -0.2) {
+        moving = 1;
+    }
+    else {
+        moving = 0;
+    }
+}
+function start() {
+    generateEnemies();
+    playing = GameState.Playing;
+    then = performance.now();
+    drawInterval = setInterval(() => {
+        drawOne();
+    }, 16);
+}
+function reScale() {
+    canvas.width = window.screen.height / 9 * 16;
+    canvas.height = window.screen.height;
+    if (mobile) {
+        screen.orientation.lock("landscape")
+            .catch(() => { ; });
+    }
+    screenRatio = (window.screen.height / 1080) * (mobile ? 1.6 : 1);
+    sizeRatio = 1 / screenRatio;
+}
+function mainMenu() {
+}
+mobile = "ontouchstart" in document.body;
+if (mobile)
+    playerSpeed = 5;
+reScale();
 document.addEventListener("keyup", handleKeyUp);
 document.addEventListener("keydown", handleKeyDownEvent);
-window.addEventListener("gamepadconnected", (event) => {
-    controller = event.gamepad;
-});
-window.addEventListener("gamepaddisconnected", (event) => {
-    controller = null;
-});
-generateEnemies();
 ctx.fillStyle = "#000";
 ctx.fillRect(0, 0, canvas.width, canvas.height);
-ctx.fillStyle = "#fff";
-ctx.font = "60px bold Consolas";
-ctx.textAlign = "center";
-ctx.fillText(`Enter`, canvas.width / 2, canvas.height / 2);
+mainMenu();
 export {};
